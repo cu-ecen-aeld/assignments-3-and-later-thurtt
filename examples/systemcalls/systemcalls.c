@@ -1,4 +1,34 @@
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 #include "systemcalls.h"
+
+
+bool wait_for_complete(int pid)
+{
+    bool result = false;
+
+    // wait for the child process to exit and return true if everything is good
+    int stat = 0;
+    pid_t p_rc = waitpid(pid, &stat, 0);
+    bool exited = WIFEXITED(stat);
+    printf("Exited state for pid %d: %d\n", pid, exited);
+    int exit_status = WEXITSTATUS(stat);
+    printf("Exit status for pid %d: %d\n", pid, exit_status);
+    bool signaled = WIFSIGNALED(stat);
+    printf("Signaled status for pid %d: %d\n", pid, signaled);
+    if( p_rc == pid
+        && exited == true
+        && exit_status == 0
+        && signaled == false )
+    {
+        result = true;
+    }
+    return result;
+}
 
 /**
  * @param cmd the command to execute with system()
@@ -16,8 +46,15 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    bool result = false;
+    int rc = system(cmd);
 
-    return true;
+    if( rc == 0 )
+    {
+        result = true;
+    }
+
+    return result;
 }
 
 /**
@@ -39,15 +76,13 @@ bool do_exec(int count, ...)
     va_list args;
     va_start(args, count);
     char * command[count+1];
+
     int i;
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
     }
-    command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
+    command[count] = (char *)NULL;
 
 /*
  * TODO:
@@ -58,10 +93,27 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    bool result = false;
+
+    // spawn a child process and execute the passed in command
+    pid_t pid = fork();
+
+    if( pid == 0 )
+    {
+        execv(command[0], command);
+        printf("execv call failed!\n");
+        printf("Error no %d, message: %s\n", errno, strerror(errno));
+        exit(1);
+    }
+    if( pid > 0 )
+    {
+        // If we're the parent, wait for the child to complete
+        result = wait_for_complete(pid);
+    }
 
     va_end(args);
 
-    return true;
+    return result;
 }
 
 /**
@@ -74,16 +126,13 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     va_list args;
     va_start(args, count);
     char * command[count+1];
+
     int i;
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
-
 
 /*
  * TODO
@@ -92,8 +141,38 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+// Source - https://stackoverflow.com/a/13784315
+// Posted by tmyklebu, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-05-15, License - CC BY-SA 3.0
+
+    bool result = false;
+    int dfd = 0;
+
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if( fd != -1 )
+    {
+        int pid = fork();
+        switch( pid )
+        {
+        case 0:
+            dfd = dup2(fd, 1);
+            if( dfd == -1 )
+            {
+                return false;
+            }
+            close(fd);
+            execv(command[0], command);
+            printf("execv call failed!\n");
+            printf("Error no %d, message: %s\n", errno, strerror(errno));
+            exit(1);
+        default:
+            // If we're the parent, wait for the child to complete
+            result = wait_for_complete(pid);
+        }
+        close(fd);
+    }
 
     va_end(args);
 
-    return true;
+    return result;
 }
