@@ -5,7 +5,7 @@ PROG=writer
 all: $(PROG)
 
 clean:
-	rm *.o $(PROG)
+	-rm *.o $(PROG)
 
 $(PROG).o:
 	$(CC) $(CFLAGS) -c $(PROG).c
