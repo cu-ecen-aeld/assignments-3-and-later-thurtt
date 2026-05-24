@@ -84,6 +84,7 @@ declare -a roodirs=("home"
                     "var/log"
                     "lib64"
                     "dev"
+                    "conf"
 )
 for root_dirname in "${roodirs[@]}"
 do
@@ -132,9 +133,9 @@ make clean
 make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE
 
 echo "Copying finder and writer scripts..."
-mkdir -p ${OUTDIR}/rootfs/home/finder-app ${OUTDIR}/rootfs/home/conf
 cd ..
-cp -R finder-app conf ${OUTDIR}/rootfs/home
+cp ./conf/* ${OUTDIR}/rootfs/conf
+cp -R finder-app/* ${OUTDIR}/rootfs/home
 
 echo "Making root the owner of the filesystem root..."
 sudo chown -R root:root ${OUTDIR}/rootfs
