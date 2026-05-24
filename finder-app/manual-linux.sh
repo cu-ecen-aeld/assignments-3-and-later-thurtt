@@ -124,14 +124,17 @@ cp ${XCOMPILE_LIB}/${lib} ${OUTDIR}/rootfs/lib
 echo "Creating device nodes..."
 sudo mknod -m 666 ${OUTDIR}/rootfs/dev/null c 1 3
 sudo mknod -m 666 ${OUTDIR}/rootfs/dev/console c 5 1
+sudo mknod -m 666 ${OUTDIR}/rootfs/dev/tty c 5 0
 
 echo "Building the writer utility..."
 cd ${FINDER_APP_DIR}
 make clean
-make
+make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE
 
 echo "Copying finder and writer scripts..."
-cp -R * ${OUTDIR}/rootfs/home
+mkdir -p ${OUTDIR}/rootfs/home/finder-app ${OUTDIR}/rootfs/home/conf
+cd ..
+cp -R finder-app conf ${OUTDIR}/rootfs/home
 
 echo "Making root the owner of the filesystem root..."
 sudo chown -R root:root ${OUTDIR}/rootfs
