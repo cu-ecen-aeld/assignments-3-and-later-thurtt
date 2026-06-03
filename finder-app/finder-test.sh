@@ -56,7 +56,7 @@ fi
 
 for i in $( seq 1 $NUMFILES)
 do
-	./writer /tmp/assignment4-result.txt "$WRITESTR"
+	./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
 done
 
 OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
@@ -66,6 +66,8 @@ rm -rf /tmp/aeld-data
 
 set +e
 echo ${OUTPUTSTRING} | grep "${MATCHSTR}"
+echo ${OUTPUTSTRING} > /tmp/assignment4-result.txt
+
 if [ $? -eq 0 ]; then
 	echo "success"
 	exit 0
