@@ -49,7 +49,7 @@ static void sig_handler(int signo)
         remove(PID_FILE);
     }
 
-    exit(3);
+    exit(0);
 }
 
 int daemon_runner()
