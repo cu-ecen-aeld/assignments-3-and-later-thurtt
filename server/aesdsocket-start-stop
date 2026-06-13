@@ -1,0 +1,26 @@
+#!/bin/sh
+
+AESD_SOCKET_PATH=${AESD_SOCKET_PATH:-/usr/bin}
+APPNAME=aesdsocket
+
+case "$1" in
+    start)
+        echo "Starting the $APPNAME daemon..."
+        start-stop-daemon -S -n $APPNAME -a $AESD_SOCKET_PATH/aesdsocket -- -d
+    ;;
+    stop)
+        echo "Shutting down the $APPNAME daemon..."
+        start-stop-daemon -K -n $APPNAME
+    ;;
+    restart)
+    $0 stop
+
+    $0 start
+    ;;
+    *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit $?
