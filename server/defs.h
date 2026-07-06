@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <bsd/sys/queue.h>
+#include "bsd/queue.h"
 #include <sys/syslog.h>
 #include <time.h>
 #include <unistd.h>
