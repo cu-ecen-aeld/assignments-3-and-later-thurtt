@@ -1,14 +1,19 @@
 CC=$(CROSS_COMPILE)gcc
-CFLAGS=-Wall -Werror -g
+CFLAGS=-Wall -Werror -std=gnu11 -D_GNU_SOURCE -g
+LDFLAGS=-lpthread
 PROG=aesdsocket
+
+SRCS = $(wildcard *.c)
+OBJS = $(SRCS:.c=.o)
+
 
 all: $(PROG)
 
 clean:
 	-rm *.o $(PROG)
 
-$(PROG).o:
-	$(CC) $(CFLAGS) -c $(PROG).c
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(PROG): $(PROG).o
-	$(CC) $(CFLAGS) -o $(PROG) $(PROG).o
+$(PROG): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

@@ -1,30 +1,8 @@
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/syslog.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <signal.h>
-#include <syslog.h>
-#include <fcntl.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <errno.h>
-#include <arpa/inet.h>
-
+#include "defs.h"
 
 // global-ish vars
 bool shutdown_complete = false;
 bool daemon_mode = false;
-
-// constants
-static const int PORT = 9000;
-static const char PID_FILE[] = "/tmp/aesdsocket.pid";
-static const char OUT_FILE[] = "/var/tmp/aesdsocketdata";
-static const int CONNS = 10;
-
 
 void show_help()
 {
@@ -52,38 +30,7 @@ static void sig_handler(int signo)
     exit(0);
 }
 
-int daemon_runner()
-{
-    switch(fork())
-    {
-      case -1:
-        return -1;
-      case 0:
-        // close our existing file descriptors
-        close(STDIN_FILENO);
-
-        int fd = open("/dev/null", O_RDWR);
-        if(fd != STDIN_FILENO)
-            return -1;
-        if(dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO)
-            return -2;
-        if(dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
-            return -3;
-
-        // save pid to the run file
-        pid_t pid = getpid();
-        FILE * hFile = fopen(PID_FILE, "wt");
-        char s_pid[10];
-        snprintf(s_pid, 10, "%d", pid);
-        fwrite(s_pid, sizeof(char), strnlen(s_pid, 10), hFile);
-        fclose(hFile);
-        break;
-      default:
-        exit(0);
-    }
-    return 0;
-}
-
+// entrypoint
 int main(int argc, char * argv[])
 {
     int opt;
@@ -172,51 +119,51 @@ int main(int argc, char * argv[])
     }
 
     int sck_connected;
-    char ip_string[20];
+    char ip_string[IP_ADDR_LEN];
 
     // Remove any old files
     remove(OUT_FILE);
+
+    // create a new mutex
+    pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+
+    // create the head node to our thread id linked list
+    SLIST_HEAD(thread_id_list_head, thread_id_item) thread_id_list = SLIST_HEAD_INITIALIZER(thread_id_list);
+    SLIST_INIT(&thread_id_list);
+
+    // create a new timer
+    setup_timer(10, &mut);
 
     // Main socket handling loop
     while(true)
     {
         syslog(LOG_INFO, "Waiting for connection...\n");
         sck_connected = accept(sck, (struct sockaddr *)&addr, (socklen_t *)&addrlen);
-        inet_ntop(AF_INET, &(addr.sin_addr), (char *)&ip_string, 20);
-        syslog(LOG_INFO, "Accepted connection from %s", ip_string);
+        inet_ntop(AF_INET, &(addr.sin_addr), (char *)&ip_string, IP_ADDR_LEN);
 
-        FILE * hOut = fopen(OUT_FILE, "a+");
-        const size_t buffer_size = 1024;
-        size_t bytesread = 0;
-        char buffer[buffer_size];
-        memset(&buffer, 0, buffer_size);
+        // set up a new thread
+        struct thread_id_item * thread_id_node = malloc(sizeof(struct thread_id_item));
+        thread_id_node->params.thread_complete = false;
+        thread_id_node->params.p_mut = &mut;
+        thread_id_node->params.socket = sck_connected;
+        strncpy(thread_id_node->params.ip_addr, ip_string, IP_ADDR_LEN);
 
-        while( true )
-        {
-            bytesread = read(sck_connected, (void *)buffer, buffer_size);
-            syslog(LOG_INFO, "Received %d bytes from client", (int)bytesread);
-            fwrite(buffer, sizeof(char), bytesread, hOut);
+        // spawn the thread and add it to our trcking list
+        pthread_create(&(thread_id_node->id), NULL, socket_worker, &(thread_id_node->params));
+        SLIST_INSERT_HEAD(&thread_id_list,  thread_id_node, entries);
 
-            if( bytesread < buffer_size )
+
+        // clean up any completed threads
+        struct thread_id_item * p_item = NULL;
+        struct thread_id_item * tmp = NULL;
+        SLIST_FOREACH_SAFE(p_item, &thread_id_list, entries, tmp) {
+
+            if( p_item->params.thread_complete == true )
             {
-                fseek(hOut, 0, SEEK_SET);
-                memset(&buffer, 0, buffer_size);
-                bytesread = 0;
-                while( true )
-                {
-                    bytesread = fread(&buffer, sizeof(char), buffer_size, hOut);
-                    write(sck_connected, buffer, bytesread);
-                    if( bytesread < buffer_size )
-                    {
-                        break;
-                    }
-                }
-                syslog(LOG_INFO, "Closed connection from %s", ip_string);
-                break;
+                SLIST_REMOVE(&thread_id_list, p_item, thread_id_item, entries);
+                pthread_join(p_item->id, NULL);
+                free(p_item);
             }
         }
-        fclose(hOut);
-
-        sleep(1);
     }
 }
