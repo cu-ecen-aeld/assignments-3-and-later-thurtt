@@ -34,11 +34,16 @@ void * socket_worker(void * params)
             fseek(hOut, 0, SEEK_SET);
             memset(&buffer, 0, buffer_size);
             bytesread = 0;
+            int byteswritten = 0;
             while( true )
             {
                 bytesread = fread(&buffer, sizeof(char), buffer_size, hOut);
                 pthread_mutex_lock(p_thread_params->p_mut);
-                write(p_thread_params->socket, buffer, bytesread);
+                byteswritten = write(p_thread_params->socket, buffer, bytesread);
+                if( byteswritten == 0 )
+                {
+                    printf("Warning: 0 bytes read");
+                }
                 pthread_mutex_unlock(p_thread_params->p_mut);
                 if( bytesread < buffer_size )
                 {
