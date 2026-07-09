@@ -34,6 +34,7 @@ static void sig_handler(int signo)
 int main(int argc, char * argv[])
 {
     int opt;
+    int bytesread = 0;
 
     while ((opt = getopt(argc, argv, "dsh")) != -1) {
         switch (opt) {
@@ -49,7 +50,11 @@ int main(int argc, char * argv[])
             }
             char s_pid[10];
             memset(s_pid, 0, 10);
-            fread(s_pid, sizeof(char), 10, hFile);
+            bytesread = fread(s_pid, sizeof(char), 10, hFile);
+            if( bytesread == 0 )
+            {
+                printf("Warning: 0 bytes read");
+            }
             fclose(hFile);
             int pid = atoi(s_pid);
             printf("Shutting down pid: %d\n", pid);
