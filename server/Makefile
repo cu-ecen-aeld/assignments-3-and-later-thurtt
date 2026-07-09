@@ -1,5 +1,5 @@
 CC ?= $(CROSS_COMPILE)gcc
-CFLAGS=-Wall -Werror -std=gnu11 -D_GNU_SOURCE -I/usr/include -g
+CFLAGS=-Wall -Werror -std=gnu11 -D_GNU_SOURCE -g
 LDFLAGS=-lpthread
 PROG=aesdsocket
 
